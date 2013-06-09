@@ -48,10 +48,10 @@
   [num-slugs]
   (dosync
     (ref-set generated-slugs {}))
-  (spit "target/data.csv" "Num slugs,<10,<100,<1K,<10K,<100K\n")
+  (spit "data/slug_size_counts.csv" "Num slugs,<10,<100,<1K,<10K,<100K\n")
   (dotimes [n num-slugs]
     (gen-slug)
-    (spit "target/data.csv" (str n "," (size-counts) "\n") :append true)))
+    (spit "data/slug_size_counts.csv" (str n "," (size-counts) "\n") :append true)))
 
 (defn compute-slug-sizes
   []
