@@ -37,5 +37,25 @@
   [num-slugs]
   (repeatedly num-slugs gen-slug))
 
+(defn size-counts
+  []
+  (let [buckets (take-while #(<= % 100000) (iterate #(* 10 %) 10))
+        bucket-counts (for [b buckets]
+                        (count (get @generated-slugs b {})))]
+    (clojure.string/join "," bucket-counts)))
 
-  
+(defn generate-visualization-data
+  [num-slugs]
+  (dosync
+    (ref-set generated-slugs {}))
+  (spit "target/data.csv" "Num slugs,<10,<100,<1K,<10K,<100K\n")
+  (dotimes [n num-slugs]
+    (gen-slug)
+    (spit "target/data.csv" (str n "," (size-counts) "\n") :append true)))
+
+(defn compute-slug-sizes
+  []
+  (dosync
+    (ref-set generated-slugs {}))
+  (map (comp #(int (java.lang.Math/ceil (java.lang.Math/log10 %))) last sort) 
+       (repeatedly 100 #(gen-slugs 10))))
