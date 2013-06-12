@@ -13,10 +13,6 @@
         shape-rendering: crispEdges;
     }
 
-    .bar {
-        fill: steelblue;
-    }
-
     .x.axis path {
         display: none;
     }
@@ -26,18 +22,25 @@
 <script src="http://d3js.org/d3.v3.min.js"></script>
 <script>
 
+    // I THINK WE WANT A STREAMGRAPH
+    // http://bl.ocks.org/mbostock/4060954
+    //
+    // OR TO USE RICKSHAW
+    // http://code.shutterstock.com/rickshaw/
+
     var margin = {top: 20, right: 20, bottom: 30, left: 40},
             width = 960 - margin.left - margin.right,
             height = 500 - margin.top - margin.bottom;
 
-    var x = d3.scale.ordinal()
-            .rangeBands([0, width], 0);
+    var x = d3.scale.linear()
+            .range([0, width]);
 
     var y = d3.scale.linear()
             .rangeRound([height, 0]);
 
-    var color = d3.scale.ordinal()
-            .range(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
+    var color = d3.scale.category20();
+//    var color = d3.scale.ordinal()
+//            .range(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
 
     var xAxis = d3.svg.axis()
             .scale(x)
@@ -48,6 +51,14 @@
             .orient("left")
             .tickFormat(d3.format(".2s"));
 
+    var area = d3.svg.area()
+            .x(function(d) { return x(d.Num_slugs); })
+            .y0(function(d) { return y(d.y0); })
+            .y1(function(d) { return y(d.y1); });
+
+    var stack = d3.layout.stack()
+            .values(function(d) { return d.counts; });
+
     var svg = d3.select("body").append("svg")
             .attr("width", width + margin.left + margin.right)
             .attr("height", height + margin.top + margin.bottom)
@@ -57,15 +68,22 @@
     d3.csv("slug_size_counts.csv", function(error, data) {
         color.domain(d3.keys(data[0]).filter(function(key) { return key !== "Num_slugs"; }));
 
-        data.forEach(function(d) {
-            var y0 = 0;
-            d.counts = color.domain().map(function(name) { return {name: name, y0: y0, y1: y0 += +d[name]}; });
-            d.total = d.counts[d.counts.length - 1].y1;
-        });
+//        data.forEach(function(d) {
+//            var y0 = 0;
+//            d.counts = color.domain().map(function(name) { return {name: name, y0: y0, y1: y0 += +d[name]}; });
+//            d.total = d.counts[d.counts.length - 1].y1;
+//        });
 
-        // data.sort(function(a, b) { return b.total - a.total; });
+        var buckets = stack(color.domain().map(function(name) {
+            return {
+                name: name,
+                values: data.map(function(d) {
+                    return {x: d.Num_slugs, y: d[name]};
+                })
+            };
+        }));
 
-        x.domain(data.map(function(d) { return d.Num_slugs; }));
+        x.domain(d3.extent(data, function(d) { return d.Num_slugs; }));
         y.domain([0, d3.max(data, function(d) { return d.total; })]);
 
         svg.append("g")
@@ -84,37 +102,15 @@
                 .text("Total slugs");
 
         var bucket = svg.selectAll(".bucket")
-                .data(data)
+                .data(buckets)
                 .enter().append("g")
-                .attr("class", "g")
-                .attr("transform", function(d) { return "translate(" + x(d.Num_slugs) + ",0)"; });
+                .attr("class", "g");
+                // .attr("transform", function(d) { return "translate(" + x(d.Num_slugs) + ",0)"; });
 
-        bucket.selectAll("rect")
-                .data(function(d) { return d.counts; })
-                .enter().append("rect")
-                .attr("width", x.rangeBand())
-                .attr("y", function(d) { return y(d.y1); })
-                .attr("height", function(d) { return y(d.y0) - y(d.y1); })
+        bucket.append("path")
+                .attr("class", "area")
+                .attr("d", function(d) { return area(d.values); })
                 .style("fill", function(d) { return color(d.name); });
-
-        var legend = svg.selectAll(".legend")
-                .data(color.domain().slice().reverse())
-                .enter().append("g")
-                .attr("class", "legend")
-                .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
-
-        legend.append("rect")
-                .attr("x", width - 18)
-                .attr("width", 18)
-                .attr("height", 18)
-                .style("fill", color);
-
-        legend.append("text")
-                .attr("x", width - 24)
-                .attr("y", 9)
-                .attr("dy", ".35em")
-                .style("text-anchor", "end")
-                .text(function(d) { return d; });
 
     });
 
